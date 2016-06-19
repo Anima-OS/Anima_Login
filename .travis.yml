@@ -4,6 +4,12 @@ sudo: false
 compiler:
   - gcc
 
+env:
+  global:
+   # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
+   #   via the "travis encrypt" command using the project repo's public key
+   - secure: "Bs+tKK3R4LsCjaz8MBIEy5axwlRBnux91sqSlbyaK9xvlFejwYmo2fY9qZuxXVxOxA9lO8i66g0q0vXM1eVXaNx/iQVSKUcDPWZS7YrQfDpD5LROYVhfmJ5icLHGK/kS1cTDXPKxWcZyWDr/vWrv4I/6dib8W2mcHFzjGr7S5GeD0gV47pIJTwuXPgZ0nEGLEhsGyAQU7PjtbOF0Gli2mzokFbJB6XpXc4QCIKs3gxUYgBmnH4php7BslMB4amSmVSVyLRl1RMdpV1wXhP2vgoVGE5mB1R9Qfx02+HbfxKEEeXad5DPacvcbCcsm3U219v8eUXXUL5lM4wxMYGsBOZwNUrTDugBxCigbtWQfZoCmt2al7QSUa0Wf5tA5RyhmKTQyDVYY6Ei9XfPSTLGBIyS1Yhh1MqSpGBcYvWOZ6tE1lhVJUb61nu1WNqID+zdCH7ICkOAb11FYtkkOJ92auwYdBNFX2CcTeQ0hylP3iuBUpyXDFCLIVQc8rpZQ77qqp7KmXlPPOmuvkvk2jwks06yGPlcF6KZ9N44sZB76Xi9bDFWAiFRSkTAh9jHoFJ1GigRVhlE7nHzf2wXN3Z9PTDm7n31IwJADS5v03bhdi7HnlZDzueNyEE7cr9sy9shUi5uVzX89/LHGxprDFk3w9xjDW44u93SkegeVCXQHvi0="
+
 install:
   - cd lib 
   - make
@@ -14,3 +20,11 @@ addons:
   apt:
     packages:
       - libpam0g-dev
+    coverity_scan:
+      project:
+        name: "Happy-Ferret/Anima_Login"
+        description: "Login-/Display manager for Anima."
+      notification_email: markbauer@gmx.ch
+      build_command_prepend: "cd lib"
+      build_command:   "make"
+      branch_pattern: coverity_scan
