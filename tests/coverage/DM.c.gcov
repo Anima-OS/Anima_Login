@@ -1,0 +1,175 @@
+        -:    0:Source:DM.c
+        -:    0:Graph:DM.gcno
+        -:    0:Data:DM.gcda
+        -:    0:Runs:2
+        -:    0:Programs:1
+        -:    1:#include <security/pam_appl.h>
+        -:    2:#include <security/pam_misc.h>
+        -:    3:
+        -:    4:#include <pwd.h>
+        -:    5:#include <paths.h>
+        -:    6:
+        -:    7:#include "DM.h"
+        -:    8:
+        -:    9:#define SERVICE_NAME "display_manager"
+        -:   10:
+        -:   11:#define err(name)                                   \
+        -:   12:    do {                                            \
+        -:   13:        fprintf(stderr, "%s: %s\n", name,           \
+        -:   14:                pam_strerror(pam_handle, result));  \
+        -:   15:        end(result);                                \
+        -:   16:        return false;                               \
+        -:   17:    } while (1);                                    \
+        -:   18:
+        -:   19:static void init_env(struct passwd *pw);
+        -:   20:static void set_env(char *name, char *value);
+        -:   21:static int end(int last_result);
+        -:   22:
+        -:   23:static int conv(int num_msg, const struct pam_message **msg,
+        -:   24:                struct pam_response **resp, void *appdata_ptr);
+        -:   25:
+        -:   26:static pam_handle_t *pam_handle;
+        -:   27:
+        2:   28:bool login(const char *username, const char *password, pid_t *child_pid) {
+        2:   29:    const char *data[2] = {username, password};
+        2:   30:    struct pam_conv pam_conv = {
+        -:   31:        conv, data
+        -:   32:    };
+        2:   33:    int result = pam_start(SERVICE_NAME, NULL, &pam_conv, &pam_handle);
+        2:   34:    if (result != PAM_SUCCESS) {
+    #####:   35:        err("pam_start");
+        -:   36:    }
+        -:   37:
+        2:   38:    result = pam_set_item(pam_handle, PAM_USER, username);
+        2:   39:    if (result != PAM_SUCCESS) {
+    #####:   40:        err("pam_set_item");
+        -:   41:    }
+        -:   42:
+        2:   43:    result = pam_authenticate(pam_handle, 0);
+        2:   44:    if (result != PAM_SUCCESS) {
+        1:   45:        err("pam_authenticate");
+        -:   46:    }
+        -:   47:
+        1:   48:    result = pam_acct_mgmt(pam_handle, 0);
+        1:   49:    if (result != PAM_SUCCESS) {
+    #####:   50:        err("pam_acct_mgmt");
+        -:   51:    }
+        -:   52:
+        1:   53:    result = pam_setcred(pam_handle, PAM_ESTABLISH_CRED);
+        1:   54:    if (result != PAM_SUCCESS) {
+    #####:   55:        err("pam_setcred");
+        -:   56:    }
+        -:   57:
+        1:   58:    result = pam_open_session(pam_handle, 0);
+        1:   59:    if (result != PAM_SUCCESS) {
+    #####:   60:        pam_setcred(pam_handle, PAM_DELETE_CRED);
+    #####:   61:        err("pam_open_session");
+        -:   62:    }
+        -:   63:
+        1:   64:    struct passwd *pw = getpwnam(username);
+        1:   65:    init_env(pw);
+        -:   66:
+        1:   67:    *child_pid = fork();
+        2:   68:    if (*child_pid == 0) {
+        1:   69:        chdir(pw->pw_dir);
+        -:   70:        // We don't use ~/.xinitrc because we should already be in the users home directory
+        1:   71:        char *cmd = "exec /usr/bin/xterm";
+        1:   72:        execl(pw->pw_shell, pw->pw_shell, "-c", cmd, NULL);
+        1:   73:        printf("Failed to start window manager");
+    #####:   74:        exit(1);
+        -:   75:    }
+        1:   76:    sleep(5);
+        1:   77:    exit(0);
+        -:   78:
+        -:   79:    return true;
+        -:   80:}
+        -:   81:
+    #####:   82:bool logout(void) {
+    #####:   83:    int result = pam_close_session(pam_handle, 0);
+    #####:   84:    if (result != PAM_SUCCESS) {
+    #####:   85:        pam_setcred(pam_handle, PAM_DELETE_CRED);
+    #####:   86:        err("pam_close_session");
+        -:   87:    }
+        -:   88:
+    #####:   89:    result = pam_setcred(pam_handle, PAM_DELETE_CRED);
+    #####:   90:    if (result != PAM_SUCCESS) {
+    #####:   91:        err("pam_setcred");
+        -:   92:    }
+        -:   93:
+    #####:   94:    end(result);
+    #####:   95:    return true;
+        -:   96:}
+        -:   97:
+        1:   98:static void init_env(struct passwd *pw) {
+        1:   99:    set_env("HOME", pw->pw_dir);
+        1:  100:    set_env("PWD", pw->pw_dir);
+        1:  101:    set_env("SHELL", pw->pw_shell);
+        1:  102:    set_env("USER", pw->pw_name);
+        1:  103:    set_env("LOGNAME", pw->pw_name);
+        1:  104:    set_env("PATH", "/usr/local/sbin:/usr/local/bin:/usr/bin");
+        -:  105:    //set_env("DISPLAY", DISPLAY);
+        1:  106:    set_env("MAIL", _PATH_MAILDIR);
+        -:  107:
+        1:  108:    char *xauthority = malloc(strlen(pw->pw_dir) + strlen("/.Xauthority") + 1);
+        1:  109:    strcpy(xauthority, pw->pw_dir);
+        1:  110:    strcat(xauthority, "/.Xauthority");
+        1:  111:    set_env("XAUTHORITY", xauthority);
+        1:  112:    free(xauthority);
+        1:  113:}
+        -:  114:
+        8:  115:static void set_env(char *name, char *value) {
+        8:  116:    char *name_value = malloc(strlen(name) + strlen(value) + 2);
+        8:  117:    strcpy(name_value, name);
+        8:  118:    strcat(name_value, "=");
+        8:  119:    strcat(name_value, value);
+        8:  120:    pam_putenv(pam_handle, name_value); // TODO: Handle errors
+        8:  121:    free(name_value);
+        8:  122:}
+        -:  123:
+        1:  124:static int end(int last_result) {
+        1:  125:    int result = pam_end(pam_handle, last_result);
+        1:  126:    pam_handle = 0;
+        1:  127:    return result;
+        -:  128:}
+        -:  129:
+        2:  130:static int conv(int num_msg, const struct pam_message **msg,
+        -:  131:                 struct pam_response **resp, void *appdata_ptr) {
+        -:  132:    int i;
+        -:  133:
+        2:  134:    *resp = calloc(num_msg, sizeof(struct pam_response));
+        2:  135:    if (*resp == NULL) {
+    #####:  136:        return PAM_BUF_ERR;
+        -:  137:    }
+        -:  138:
+        2:  139:    int result = PAM_SUCCESS;
+        4:  140:    for (i = 0; i < num_msg; i++) {
+        -:  141:        char *username, *password;
+        2:  142:        switch (msg[i]->msg_style) {
+        -:  143:        case PAM_PROMPT_ECHO_ON:
+    #####:  144:            username = ((char **) appdata_ptr)[0];
+    #####:  145:            (*resp)[i].resp = strdup(username);
+    #####:  146:            break;
+        -:  147:        case PAM_PROMPT_ECHO_OFF:
+        2:  148:            password = ((char **) appdata_ptr)[1];
+        2:  149:            (*resp)[i].resp = strdup(password);
+        2:  150:            break;
+        -:  151:        case PAM_ERROR_MSG:
+    #####:  152:            fprintf(stderr, "%s\n", msg[i]->msg);
+    #####:  153:            result = PAM_CONV_ERR;
+    #####:  154:            break;
+        -:  155:        case PAM_TEXT_INFO:
+    #####:  156:            printf("%s\n", msg[i]->msg);
+    #####:  157:            break;
+        -:  158:        }
+        2:  159:        if (result != PAM_SUCCESS) {
+    #####:  160:            break;
+        -:  161:        }
+        -:  162:    }
+        -:  163:
+        2:  164:    if (result != PAM_SUCCESS) {
+    #####:  165:        free(*resp);
+    #####:  166:        *resp = 0;
+        -:  167:    }
+        -:  168:
+        2:  169:    return result;
+        -:  170:}

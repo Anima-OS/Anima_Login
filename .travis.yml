@@ -14,3 +14,6 @@ addons:
   apt:
     packages:
       - libpam0g-dev
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)

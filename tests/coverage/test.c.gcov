@@ -1,0 +1,10 @@
+        -:    0:Source:../tests/test.c
+        -:    0:Graph:test.gcno
+        -:    0:Data:test.gcda
+        -:    0:Runs:2
+        -:    0:Programs:1
+        -:    1:#include <stdio.h>
+        -:    2:
+        2:    3:int main( int argc, char *argv[]) {
+        2:    4:	login(argv[1], argv[2]);
+        -:    5:}
