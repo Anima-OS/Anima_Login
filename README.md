@@ -1,6 +1,7 @@
 [![License][license]](LICENSE.md)
 
 **Display management/Security module:<br>**[![Build Status][build]](https://travis-ci.org/Happy-Ferret/Anima_Login)
+[![Codecov branch][codecov]](https://codecov.io/gh/Happy-Ferret/Anima_Login/branch/codecov)
 
 **Frontend:<br>**
 
@@ -9,3 +10,4 @@ Login-/Display manager for Anima.
 
 [license]: https://img.shields.io/badge/license-BSD3-blue.svg
 [build]: https://travis-ci.org/Happy-Ferret/Anima_Login.svg?branch=master
+[codecov]: https://img.shields.io/codecov/c/github/Happy-Ferret/Anima_Login/codecov.svg?maxAge=2592000)
